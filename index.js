@@ -1,47 +1,33 @@
-const Firebird = require( 'node-firebird' )
-const fs = require( 'fs' )
+#!/usr/bin/env node
+const commander = require('commander')
+const version = require('./package.json').version
+const services = require('./services')
 
-const params = {
-  host: '',
-  port: 3050,
-  database: '',
-  user: '',
-  password: '',
-  role: null,
-  pageSize: 4096
+commander
+  .version(version)
+  .option('-h, --host <host>', 'Host address')
+  .option('-H, --HOST <HOST>', 'Planos Host address')
+  .option('-p, --port <port>', 'Database port')
+  .option('-P, --PORT <PORT>', 'Planos Database port')
+  .option('-d, --database <database>', 'Database name')
+  .option('-D, --DATABASE <DATABASE>', 'Planos Database name')
+  .option('-u, --user <user>', 'Database username')
+  .option('-U, --USER <USER>', 'Planos Database username')
+  .option('-w, --password <password>', 'Database password')
+  .option('-W, --PASSWORD <PASSWORD>', 'Planos Database password')
+  .option('-o, --output <outputPath>', 'Output path')
+  .option('-E, --EMPRESA <EMPRESA>', 'CNPJ Empresa Database Planos')
+  .option('-s, --system <systemName>', 'The system name. Example: fire, ciss')
+  .parse(process.argv)
+
+const start = async ( { host, HOST, port, PORT, database, DATABASE, user, USER, password, PASSWORD, EMPRESA } ) => {
+  try {
+    const params = { host, HOST, port, PORT, database, DATABASE, user, USER, password, PASSWORD, EMPRESA }
+    const response = await services[ commander.system ].getReport( params, commander.output )
+    console.log( response )
+  } catch ( e ) {
+    console.error( e )
+  }
 }
 
-Firebird.attach( params, ( err, db ) => {
-  if ( err ) throw err
-
-  db.query( `
-      select
-        a.cod_item,
-        b.cod_barras,
-        a.descricao,
-        c.qtd,
-        c.custo_medio,
-        c.preco_atacado
-      from
-        itens as a
-      join
-        barras as b on a.cod_item = b.cod_item
-      join
-        itens_estoque as c on a.cod_item = c.cod_item
-      where
-        b.cod_empresa = 2;`, ( err, data ) => {
-          if ( err ) throw err
-
-          try {
-            const fileName = './produtos.csv'
-            if ( fs.existsSync( fileName ) ) {
-              fs.unlinkSync( fileName )
-            }
-
-            fs.writeFileSync( fileName, data.map( item => `${ item.COD_ITEM };${ item.COD_BARRAS };${ item.DESCRICAO.toString().trim() };${ item.QTD };${ item.CUSTO_MEDIO.toString().replace( '.', ',' ) };0;0;${ item.PRECO_ATACADO ? item.PRECO_ATACADO.replace( '.', ',' ) : 0 };0` ).join( '\n' ), 'utf-8' )
-          } catch ( err ) {
-            throw err
-          }
-          db.detach()
-        } )
-} )
+start(commander)
